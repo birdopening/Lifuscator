@@ -2,11 +2,13 @@ plugins {
     id("java")
 }
 
-group = "org.lifuscator"
-version = "1.0"
+allprojects {
+    group = "org.lifuscator"
+    version = "1.0"
 
-repositories {
-    mavenCentral()
+    repositories {
+        mavenCentral()
+    }
 }
 
 dependencies {

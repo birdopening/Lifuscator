@@ -2,17 +2,10 @@ plugins {
     id("java")
 }
 
-group = "org.lifuscator"
-version = "1.0"
-
 tasks.jar {
     manifest {
         attributes["Main-Class"] = "org.lifuscator.cli.Main"
     }
-}
-
-repositories {
-    mavenCentral()
 }
 
 dependencies {
