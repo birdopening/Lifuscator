@@ -1,6 +1,7 @@
 package org.lifuscator.core.context;
 
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import org.lifuscator.core.transformer.Transformer;
 import org.lifuscator.core.transformer.impl.SourceFileRemoverTransformer;
 import org.lifuscator.core.transformer.impl.StringEncryptorTransformer;
@@ -22,6 +23,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 @Getter
+@Slf4j
 public class Context {
 
     private final String input;
@@ -53,6 +55,8 @@ public class Context {
                 }
             }
 
+            log.info("Loaded {} classes and {} resources", classes.size(), resources.size());
+
             for (Transformer transformer : transformers) {
                 transformer.transform(this);
             }
@@ -72,6 +76,8 @@ public class Context {
                     jos.write(bytes);
                 }
             }
+
+            log.info("Successful");
         } catch (IOException e) {
             e.printStackTrace();
         }

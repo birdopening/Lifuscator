@@ -14,6 +14,9 @@ dependencies {
     implementation("org.ow2.asm:asm-tree:9.10.1")
     implementation("org.ow2.asm:asm-analysis:9.10.1")
 
+    // Logging
+    implementation("ch.qos.logback:logback-classic:1.5.33")
+
     // Lombok
     compileOnly("org.projectlombok:lombok:1.18.46")
     annotationProcessor("org.projectlombok:lombok:1.18.46")
