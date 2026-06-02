@@ -1,8 +1,8 @@
-package org.lifuscator.context;
+package org.lifuscator.core.context;
 
 import lombok.Getter;
-import org.lifuscator.transformer.Transformer;
-import org.lifuscator.utils.IOUtils;
+import org.lifuscator.core.transformer.Transformer;
+import org.lifuscator.core.utils.IOUtils;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.tree.ClassNode;

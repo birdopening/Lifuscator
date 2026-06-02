@@ -1,8 +1,8 @@
-package org.lifuscator.transformer.impl;
+package org.lifuscator.core.transformer.impl;
 
-import org.lifuscator.context.Context;
-import org.lifuscator.transformer.Transformer;
-import org.lifuscator.utils.AsmUtils;
+import org.lifuscator.core.context.Context;
+import org.lifuscator.core.transformer.Transformer;
+import org.lifuscator.core.utils.AsmUtils;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.tree.*;
 

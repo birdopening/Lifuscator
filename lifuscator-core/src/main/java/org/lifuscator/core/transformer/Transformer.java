@@ -1,6 +1,6 @@
-package org.lifuscator.transformer;
+package org.lifuscator.core.transformer;
 
-import org.lifuscator.context.Context;
+import org.lifuscator.core.context.Context;
 import org.objectweb.asm.Opcodes;
 
 import java.security.SecureRandom;

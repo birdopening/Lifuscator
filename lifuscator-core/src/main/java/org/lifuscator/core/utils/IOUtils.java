@@ -1,4 +1,4 @@
-package org.lifuscator.utils;
+package org.lifuscator.core.utils;
 
 import lombok.experimental.UtilityClass;
 
