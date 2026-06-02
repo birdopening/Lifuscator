@@ -1,6 +1,7 @@
 package org.lifuscator.context;
 
 import lombok.Getter;
+import org.lifuscator.transformer.Transformer;
 import org.lifuscator.utils.IOUtils;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
@@ -9,7 +10,9 @@ import org.objectweb.asm.tree.ClassNode;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
@@ -19,10 +22,19 @@ import java.util.zip.ZipInputStream;
 @Getter
 public class Context {
 
+    private final String input;
+    private final String output;
+
     private final Map<String, ClassNode> classes = new HashMap<>();
     private final Map<String, byte[]> resources = new HashMap<>();
+    private final List<Transformer> transformers = new ArrayList<>();
 
-    public void run(String input, String output) {
+    public Context(String input, String output) {
+        this.input = input;
+        this.output = output;
+    }
+
+    public void run() {
         try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(new File(input).toPath()))) {
             ZipEntry zipEntry;
             while ((zipEntry = zis.getNextEntry()) != null) {
@@ -34,6 +46,10 @@ public class Context {
                 } else {
                     resources.put(zipEntry.getName(), IOUtils.readAll(zis));
                 }
+            }
+
+            for (Transformer transformer : transformers) {
+                transformer.transform(this);
             }
 
             try (JarOutputStream jos = new JarOutputStream(Files.newOutputStream(new File(output).toPath()))) {
