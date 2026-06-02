@@ -1,8 +1,9 @@
 plugins {
     id("java")
+    id("com.gradleup.shadow") version "9.4.2"
 }
 
-tasks.jar {
+tasks.shadowJar {
     manifest {
         attributes["Main-Class"] = "org.lifuscator.cli.Main"
     }
