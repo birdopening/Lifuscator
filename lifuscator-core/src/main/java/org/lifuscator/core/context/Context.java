@@ -2,6 +2,8 @@ package org.lifuscator.core.context;
 
 import lombok.Getter;
 import org.lifuscator.core.transformer.Transformer;
+import org.lifuscator.core.transformer.impl.SourceFileRemoverTransformer;
+import org.lifuscator.core.transformer.impl.StringEncryptorTransformer;
 import org.lifuscator.core.utils.IOUtils;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
@@ -32,6 +34,9 @@ public class Context {
     public Context(String input, String output) {
         this.input = input;
         this.output = output;
+
+        transformers.add(new SourceFileRemoverTransformer());
+        transformers.add(new StringEncryptorTransformer());
     }
 
     public void run() {
