@@ -5,6 +5,12 @@ plugins {
 group = "org.lifuscator"
 version = "1.0-SNAPSHOT"
 
+tasks.jar {
+    manifest {
+        attributes["Main-Class"] = "org.lifuscator.cli.Main"
+    }
+}
+
 repositories {
     mavenCentral()
 }
