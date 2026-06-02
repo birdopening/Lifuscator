@@ -2,6 +2,7 @@ package org.lifuscator.core.context;
 
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.io.FileUtils;
 import org.lifuscator.core.transformer.Transformer;
 import org.lifuscator.core.transformer.impl.SourceFileRemoverTransformer;
 import org.lifuscator.core.transformer.impl.StringEncryptorTransformer;
@@ -26,23 +27,23 @@ import java.util.zip.ZipInputStream;
 @Slf4j
 public class Context {
 
-    private final String input;
-    private final String output;
+    private final File input;
+    private final File output;
 
     private final Map<String, ClassNode> classes = new HashMap<>();
     private final Map<String, byte[]> resources = new HashMap<>();
     private final List<Transformer> transformers = new ArrayList<>();
 
     public Context(String input, String output) {
-        this.input = input;
-        this.output = output;
+        this.input = new File(input);
+        this.output = new File(output);
 
         transformers.add(new SourceFileRemoverTransformer());
         transformers.add(new StringEncryptorTransformer());
     }
 
     public void run() {
-        try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(new File(input).toPath()))) {
+        try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(input.toPath()))) {
             ZipEntry zipEntry;
             while ((zipEntry = zis.getNextEntry()) != null) {
                 if (zipEntry.getName().endsWith(".class")) {
@@ -61,7 +62,7 @@ public class Context {
                 transformer.transform(this);
             }
 
-            try (JarOutputStream jos = new JarOutputStream(Files.newOutputStream(new File(output).toPath()))) {
+            try (JarOutputStream jos = new JarOutputStream(Files.newOutputStream(output.toPath()))) {
                 for (Map.Entry<String, byte[]> resource : resources.entrySet()) {
                     jos.putNextEntry(new JarEntry(resource.getKey()));
                     jos.write(resource.getValue());
@@ -77,7 +78,11 @@ public class Context {
                 }
             }
 
-            log.info("Successful");
+            log.info("Successful!");
+
+            String oldSize = FileUtils.byteCountToDisplaySize(FileUtils.sizeOf(input));
+            String newSize = FileUtils.byteCountToDisplaySize(FileUtils.sizeOf(output));
+            log.info("File size changed from {} to {}", oldSize, newSize);
         } catch (IOException e) {
             e.printStackTrace();
         }

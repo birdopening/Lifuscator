@@ -7,6 +7,9 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
+    // apache commons IO
+    implementation("commons-io:commons-io:2.22.0")
+
     // Asm
     implementation("org.ow2.asm:asm:9.10.1")
     implementation("org.ow2.asm:asm-commons:9.10.1")
