@@ -10,6 +10,8 @@ import org.objectweb.asm.tree.*;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
+//TODO: support Invokespecial + fields
+
 @Slf4j(topic = "InvokeDynamic")
 public class InvokeDynamicTransformer extends Transformer {
 
@@ -30,7 +32,7 @@ public class InvokeDynamicTransformer extends Transformer {
                         }
 
                         Handle bootstrap = new Handle(H_INVOKESTATIC, clazz.name, bootstrapName, BOOTSTRAP_DESC, false);
-                        InvokeDynamicInsnNode indy = new InvokeDynamicInsnNode(methodInsn.name, getDescriptor(methodInsn), bootstrap, methodInsn.owner, methodInsn.desc, methodInsn.getOpcode());
+                        InvokeDynamicInsnNode indy = new InvokeDynamicInsnNode(methodInsn.name, indyDesc(methodInsn), bootstrap, methodInsn.owner, methodInsn.desc, methodInsn.getOpcode());
                         method.instructions.set(methodInsn, indy);
 
                         count.getAndIncrement();
@@ -51,7 +53,7 @@ public class InvokeDynamicTransformer extends Transformer {
         return opcode == INVOKESTATIC || opcode == INVOKEVIRTUAL || opcode == INVOKEINTERFACE;
     }
 
-    public String getDescriptor(MethodInsnNode methodInsn) {
+    public String indyDesc(MethodInsnNode methodInsn) {
         if (methodInsn.getOpcode() == INVOKESTATIC) {
             return methodInsn.desc;
         }
