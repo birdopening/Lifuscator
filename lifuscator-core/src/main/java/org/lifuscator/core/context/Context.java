@@ -7,6 +7,7 @@ import org.apache.commons.io.file.PathUtils;
 import org.lifuscator.core.jar.Jar;
 import org.lifuscator.core.jar.JarLoader;
 import org.lifuscator.core.transformer.Transformer;
+import org.lifuscator.core.transformer.impl.InvokeDynamicTransformer;
 import org.lifuscator.core.transformer.impl.SourceFileRemoverTransformer;
 import org.lifuscator.core.transformer.impl.StringEncryptorTransformer;
 import org.lifuscator.core.utils.IOUtils;
@@ -44,6 +45,7 @@ public class Context {
 
         transformers.add(new SourceFileRemoverTransformer());
         transformers.add(new StringEncryptorTransformer());
+        transformers.add(new InvokeDynamicTransformer());
     }
 
     public void run() {
