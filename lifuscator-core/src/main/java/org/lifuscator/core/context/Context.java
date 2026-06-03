@@ -3,6 +3,9 @@ package org.lifuscator.core.context;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.file.PathUtils;
+import org.lifuscator.core.jar.Jar;
+import org.lifuscator.core.jar.JarLoader;
 import org.lifuscator.core.transformer.Transformer;
 import org.lifuscator.core.transformer.impl.SourceFileRemoverTransformer;
 import org.lifuscator.core.transformer.impl.StringEncryptorTransformer;
@@ -14,6 +17,7 @@ import org.objectweb.asm.tree.ClassNode;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -24,67 +28,49 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 @Getter
-@Slf4j
+@Slf4j(topic = "Context")
 public class Context {
 
-    private final File input;
-    private final File output;
+    private final Path input;
+    private final Path output;
 
-    private final Map<String, ClassNode> classes = new HashMap<>();
-    private final Map<String, byte[]> resources = new HashMap<>();
+    private Jar jar;
+
     private final List<Transformer> transformers = new ArrayList<>();
 
     public Context(String input, String output) {
-        this.input = new File(input);
-        this.output = new File(output);
+        this.input = Path.of(input);
+        this.output = Path.of(output);
 
         transformers.add(new SourceFileRemoverTransformer());
         transformers.add(new StringEncryptorTransformer());
     }
 
     public void run() {
-        try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(input.toPath()))) {
-            ZipEntry zipEntry;
-            while ((zipEntry = zis.getNextEntry()) != null) {
-                if (zipEntry.getName().endsWith(".class")) {
-                    ClassReader reader = new ClassReader(zis);
-                    ClassNode classNode = new ClassNode();
-                    reader.accept(classNode, 0);
-                    classes.put(classNode.name, classNode);
-                } else {
-                    resources.put(zipEntry.getName(), IOUtils.readAll(zis));
-                }
-            }
+        this.jar = JarLoader.load(this.input);
+        if (this.jar == null) {
+            log.error("Failed to load jar");
+            return;
+        }
 
-            log.info("Loaded {} classes and {} resources", classes.size(), resources.size());
+        for (Transformer transformer : this.transformers) {
+            log.info("Running transformer {}", transformer.getClass().getSimpleName());
+            transformer.transform(this);
+        }
 
-            for (Transformer transformer : transformers) {
-                transformer.transform(this);
-            }
+        if (!JarLoader.export(this.jar, this.output)) {
+            log.error("Failed to export jar");
+            return;
+        }
 
-            try (JarOutputStream jos = new JarOutputStream(Files.newOutputStream(output.toPath()))) {
-                for (Map.Entry<String, byte[]> resource : resources.entrySet()) {
-                    jos.putNextEntry(new JarEntry(resource.getKey()));
-                    jos.write(resource.getValue());
-                }
+        log.info("Successful!");
 
-                for (ClassNode clazz : classes.values()) {
-                    ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
-                    clazz.accept(writer);
-
-                    byte[] bytes = writer.toByteArray();
-                    jos.putNextEntry(new JarEntry(clazz.name + ".class"));
-                    jos.write(bytes);
-                }
-            }
-
-            log.info("Successful!");
-
-            String oldSize = FileUtils.byteCountToDisplaySize(FileUtils.sizeOf(input));
-            String newSize = FileUtils.byteCountToDisplaySize(FileUtils.sizeOf(output));
+        try {
+            String oldSize = FileUtils.byteCountToDisplaySize(PathUtils.sizeOf(this.input));
+            String newSize = FileUtils.byteCountToDisplaySize(PathUtils.sizeOf(this.output));
             log.info("File size changed from {} to {}", oldSize, newSize);
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("Failed to get jar size", e);
         }
     }
 }

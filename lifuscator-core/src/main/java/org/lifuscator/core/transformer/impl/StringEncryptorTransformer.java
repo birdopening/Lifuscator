@@ -1,18 +1,25 @@
 package org.lifuscator.core.transformer.impl;
 
+import lombok.extern.slf4j.Slf4j;
 import org.lifuscator.core.context.Context;
 import org.lifuscator.core.transformer.Transformer;
 import org.lifuscator.core.utils.AsmUtils;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.tree.*;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
+@Slf4j(topic = "StringEncryptor")
 public class StringEncryptorTransformer extends Transformer {
 
     public static final String XOR_DESC = "(Ljava/lang/String;I)Ljava/lang/String;";
 
     @Override
     public void transform(Context context) {
-        for (ClassNode clazz : context.getClasses().values()) {
+
+        AtomicInteger count = new AtomicInteger(0);
+
+        for (ClassNode clazz : context.getJar().classes().values()) {
             String methodName = null;
 
             for (MethodNode method : clazz.methods) {
@@ -30,6 +37,8 @@ public class StringEncryptorTransformer extends Transformer {
                             decrypt.add(new LdcInsnNode(key));
                             decrypt.add(new MethodInsnNode(INVOKESTATIC, clazz.name, methodName, XOR_DESC, false));
                             method.instructions.insert(ldc, decrypt);
+
+                            count.getAndIncrement();
                         }
                     }
                 }
@@ -39,6 +48,8 @@ public class StringEncryptorTransformer extends Transformer {
                 injectXorMethod(clazz, methodName);
             }
         }
+
+        log.info("Encrypted {} strings", count.get());
     }
 
     public static String xor(String s, int k) {
