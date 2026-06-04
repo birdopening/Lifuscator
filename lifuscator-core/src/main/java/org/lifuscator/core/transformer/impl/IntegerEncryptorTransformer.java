@@ -26,7 +26,8 @@ public class IntegerEncryptorTransformer extends Transformer {
                     int key = random.nextInt();
 
                     InsnList encrypted = new InsnList();
-                    encrypted.add(AsmUtils.numberInsn(number ^ key));
+                    encrypted.add(AsmUtils.numberInsn(Integer.reverse(number ^ key)));
+                    encrypted.add(new MethodInsnNode(INVOKESTATIC, "java/lang/Integer", "reverse", "(I)I", false));
                     encrypted.add(AsmUtils.numberInsn(key));
                     encrypted.add(new InsnNode(IXOR));
 
