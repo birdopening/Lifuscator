@@ -19,6 +19,24 @@ public class AsmUtils implements Opcodes {
         }
     }
 
+    public Integer number(AbstractInsnNode instruction) {
+        int opcode = instruction.getOpcode();
+
+        if (opcode >= ICONST_M1 && opcode <= ICONST_5) {
+            return opcode - 3;
+        }
+
+        if (instruction instanceof IntInsnNode intInsn && (opcode == BIPUSH || opcode == SIPUSH)) {
+            return intInsn.operand;
+        }
+
+        if (instruction instanceof LdcInsnNode ldc && ldc.cst instanceof Integer integer) {
+            return integer;
+        }
+
+        return null;
+    }
+
     public String findUnusedMethodName(ClassNode clazz, String desiredName, String desc) {
         if (!methodExists(clazz, desiredName, desc)) {
             return desiredName;
