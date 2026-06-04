@@ -8,6 +8,8 @@ import org.objectweb.asm.Handle;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.tree.*;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 //TODO: support Invokespecial + fields
@@ -15,7 +17,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Slf4j(topic = "InvokeDynamic")
 public class InvokeDynamicTransformer extends Transformer {
 
-    public static final String BOOTSTRAP_DESC = "(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;Ljava/lang/String;I)Ljava/lang/invoke/CallSite;";
+    public static final String BOOTSTRAP_DESC = "(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;I)Ljava/lang/invoke/CallSite;";
+    public static final String REFERENCES_DESC = "[Ljava/lang/String;";
 
     @Override
     public void transform(Context context) {
@@ -23,17 +26,23 @@ public class InvokeDynamicTransformer extends Transformer {
 
         for (ClassNode clazz : context.getJar().classes().values()) {
             String bootstrapName = null;
+            String referencesName = null;
+
+            //TODO: maybe a reference record
+            List<String> references = new ArrayList<>();
 
             for (MethodNode method : clazz.methods) {
                 for (AbstractInsnNode instruction : method.instructions.toArray()) {
                     if (instruction instanceof MethodInsnNode methodInsn && replaceable(methodInsn)) {
                         if (bootstrapName == null) {
                             bootstrapName = AsmUtils.findUnusedMethodName(clazz, "bootstrap", BOOTSTRAP_DESC);
+                            referencesName = AsmUtils.findUnusedFieldName(clazz, "references", REFERENCES_DESC);
                         }
 
                         Handle bootstrap = new Handle(H_INVOKESTATIC, clazz.name, bootstrapName, BOOTSTRAP_DESC, false);
-                        InvokeDynamicInsnNode indy = new InvokeDynamicInsnNode(methodInsn.name, indyDesc(methodInsn), bootstrap, methodInsn.owner, methodInsn.desc, methodInsn.getOpcode());
+                        InvokeDynamicInsnNode indy = new InvokeDynamicInsnNode(methodInsn.name, indyDesc(methodInsn), bootstrap, references.size());
                         method.instructions.set(methodInsn, indy);
+                        references.add(reference(methodInsn));
 
                         count.getAndIncrement();
                     }
@@ -41,7 +50,9 @@ public class InvokeDynamicTransformer extends Transformer {
             }
 
             if (bootstrapName != null) {
-                injectBootstrapMethod(clazz, bootstrapName);
+                clazz.fields.add(new FieldNode(ACC_PRIVATE | ACC_STATIC, referencesName, REFERENCES_DESC, null, null));
+                injectReferences(clazz, referencesName, references);
+                injectBootstrapMethod(clazz, bootstrapName, referencesName);
             }
         }
 
@@ -60,50 +71,89 @@ public class InvokeDynamicTransformer extends Transformer {
         return methodInsn.desc.replace("(", "(Ljava/lang/Object;");
     }
 
-//    public static CallSite bootstrap(MethodHandles.Lookup lookup, String name, MethodType invokedType, String owner, String desc, int opcode) throws Throwable {
+    public String reference(MethodInsnNode methodInsn) {
+        return methodInsn.owner + "%" + methodInsn.desc + "%" + methodInsn.getOpcode();
+    }
+
+//    public static String[] references;
+//
+//    public static CallSite bootstrap(MethodHandles.Lookup lookup, String name, MethodType invokedType, int index) throws Throwable {
+//        String[] reference = references[index].split("%");
 //        ClassLoader classLoader = lookup.lookupClass().getClassLoader();
-//        Class<?> ownerClass = Class.forName(owner.replace("/", "."), false, classLoader);
-//        MethodType methodType = MethodType.fromMethodDescriptorString(desc, classLoader);
+//        Class<?> ownerClass = Class.forName(reference[0].replace("/", "."), false, classLoader);
+//        MethodType methodType = MethodType.fromMethodDescriptorString(reference[1], classLoader);
+//        int opcode = Integer.parseInt(reference[2]);
 //        MethodHandle handle = opcode == INVOKESTATIC ? lookup.findStatic(ownerClass, name, methodType) : lookup.findVirtual(ownerClass, name, methodType);
 //        return new ConstantCallSite(handle.asType(invokedType));
 //    }
 
-    public void injectBootstrapMethod(ClassNode clazz, String methodName) {
+    public void injectReferences(ClassNode clazz, String fieldName, List<String> references) {
+        InsnList instructions = new InsnList();
+        instructions.add(AsmUtils.numberInsn(references.size()));
+        instructions.add(new TypeInsnNode(ANEWARRAY, "java/lang/String"));
+
+        for (int i = 0; i < references.size(); i++) {
+            instructions.add(new InsnNode(DUP));
+            instructions.add(AsmUtils.numberInsn(i)); // index
+            instructions.add(new LdcInsnNode(references.get(i)));
+            instructions.add(new InsnNode(AASTORE));
+        }
+
+        instructions.add(new FieldInsnNode(PUTSTATIC, clazz.name, fieldName, REFERENCES_DESC));
+        AsmUtils.clinit(clazz).instructions.insert(instructions);
+    }
+
+    public void injectBootstrapMethod(ClassNode clazz, String methodName, String referencesName) {
         MethodNode bootstrapMethod = new MethodNode(ACC_PUBLIC | ACC_STATIC, methodName, BOOTSTRAP_DESC, null, new String[]{"java/lang/Throwable"});
         bootstrapMethod.visitCode();
+        bootstrapMethod.visitFieldInsn(GETSTATIC, clazz.name, referencesName, REFERENCES_DESC);
+        bootstrapMethod.visitVarInsn(ILOAD, 3);
+        bootstrapMethod.visitInsn(AALOAD);
+        bootstrapMethod.visitLdcInsn("%");
+        bootstrapMethod.visitMethodInsn(INVOKEVIRTUAL, "java/lang/String", "split", "(Ljava/lang/String;)[Ljava/lang/String;", false);
+        bootstrapMethod.visitVarInsn(ASTORE, 4);
         bootstrapMethod.visitVarInsn(ALOAD, 0);
         bootstrapMethod.visitMethodInsn(INVOKEVIRTUAL, "java/lang/invoke/MethodHandles$Lookup", "lookupClass", "()Ljava/lang/Class;", false);
         bootstrapMethod.visitMethodInsn(INVOKEVIRTUAL, "java/lang/Class", "getClassLoader", "()Ljava/lang/ClassLoader;", false);
-        bootstrapMethod.visitVarInsn(ASTORE, 6);
-        bootstrapMethod.visitVarInsn(ALOAD, 3);
+        bootstrapMethod.visitVarInsn(ASTORE, 5);
+        bootstrapMethod.visitVarInsn(ALOAD, 4);
+        bootstrapMethod.visitInsn(ICONST_0);
+        bootstrapMethod.visitInsn(AALOAD);
         bootstrapMethod.visitLdcInsn("/");
         bootstrapMethod.visitLdcInsn(".");
         bootstrapMethod.visitMethodInsn(INVOKEVIRTUAL, "java/lang/String", "replace", "(Ljava/lang/CharSequence;Ljava/lang/CharSequence;)Ljava/lang/String;", false);
         bootstrapMethod.visitInsn(ICONST_0);
-        bootstrapMethod.visitVarInsn(ALOAD, 6);
+        bootstrapMethod.visitVarInsn(ALOAD, 5);
         bootstrapMethod.visitMethodInsn(INVOKESTATIC, "java/lang/Class", "forName", "(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/lang/Class;", false);
+        bootstrapMethod.visitVarInsn(ASTORE, 6);
+        bootstrapMethod.visitVarInsn(ALOAD, 4);
+        bootstrapMethod.visitInsn(ICONST_1);
+        bootstrapMethod.visitInsn(AALOAD);
+        bootstrapMethod.visitVarInsn(ALOAD, 5);
+        bootstrapMethod.visitMethodInsn(INVOKESTATIC, "java/lang/invoke/MethodType", "fromMethodDescriptorString", "(Ljava/lang/String;Ljava/lang/ClassLoader;)Ljava/lang/invoke/MethodType;", false);
         bootstrapMethod.visitVarInsn(ASTORE, 7);
         bootstrapMethod.visitVarInsn(ALOAD, 4);
-        bootstrapMethod.visitVarInsn(ALOAD, 6);
-        bootstrapMethod.visitMethodInsn(INVOKESTATIC, "java/lang/invoke/MethodType", "fromMethodDescriptorString", "(Ljava/lang/String;Ljava/lang/ClassLoader;)Ljava/lang/invoke/MethodType;", false);
-        bootstrapMethod.visitVarInsn(ASTORE, 8);
-        bootstrapMethod.visitVarInsn(ILOAD, 5);
+        bootstrapMethod.visitInsn(ICONST_2);
+        bootstrapMethod.visitInsn(AALOAD);
+        bootstrapMethod.visitMethodInsn(INVOKESTATIC, "java/lang/Integer", "parseInt", "(Ljava/lang/String;)I", false);
+        bootstrapMethod.visitVarInsn(ISTORE, 8);
+        bootstrapMethod.visitVarInsn(ILOAD, 8);
         bootstrapMethod.visitIntInsn(SIPUSH, 184);
         Label label0 = new Label();
         bootstrapMethod.visitJumpInsn(IF_ICMPNE, label0);
         bootstrapMethod.visitVarInsn(ALOAD, 0);
-        bootstrapMethod.visitVarInsn(ALOAD, 7);
+        bootstrapMethod.visitVarInsn(ALOAD, 6);
         bootstrapMethod.visitVarInsn(ALOAD, 1);
-        bootstrapMethod.visitVarInsn(ALOAD, 8);
+        bootstrapMethod.visitVarInsn(ALOAD, 7);
         bootstrapMethod.visitMethodInsn(INVOKEVIRTUAL, "java/lang/invoke/MethodHandles$Lookup", "findStatic", "(Ljava/lang/Class;Ljava/lang/String;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/MethodHandle;", false);
         Label label1 = new Label();
         bootstrapMethod.visitJumpInsn(GOTO, label1);
         bootstrapMethod.visitLabel(label0);
-        bootstrapMethod.visitFrame(F_APPEND, 3, new Object[]{"java/lang/ClassLoader", "java/lang/Class", "java/lang/invoke/MethodType"}, 0, null);
+        bootstrapMethod.visitFrame(F_FULL, 9, new Object[]{"java/lang/invoke/MethodHandles$Lookup", "java/lang/String", "java/lang/invoke/MethodType", INTEGER, "[Ljava/lang/String;", "java/lang/ClassLoader", "java/lang/Class", "java/lang/invoke/MethodType", INTEGER}, 0, new Object[]{});
         bootstrapMethod.visitVarInsn(ALOAD, 0);
-        bootstrapMethod.visitVarInsn(ALOAD, 7);
+        bootstrapMethod.visitVarInsn(ALOAD, 6);
         bootstrapMethod.visitVarInsn(ALOAD, 1);
-        bootstrapMethod.visitVarInsn(ALOAD, 8);
+        bootstrapMethod.visitVarInsn(ALOAD, 7);
         bootstrapMethod.visitMethodInsn(INVOKEVIRTUAL, "java/lang/invoke/MethodHandles$Lookup", "findVirtual", "(Ljava/lang/Class;Ljava/lang/String;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/MethodHandle;", false);
         bootstrapMethod.visitLabel(label1);
         bootstrapMethod.visitFrame(F_SAME1, 0, null, 1, new Object[]{"java/lang/invoke/MethodHandle"});

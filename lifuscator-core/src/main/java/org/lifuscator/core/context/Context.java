@@ -10,23 +10,11 @@ import org.lifuscator.core.transformer.Transformer;
 import org.lifuscator.core.transformer.impl.InvokeDynamicTransformer;
 import org.lifuscator.core.transformer.impl.SourceFileRemoverTransformer;
 import org.lifuscator.core.transformer.impl.StringEncryptorTransformer;
-import org.lifuscator.core.utils.IOUtils;
-import org.objectweb.asm.ClassReader;
-import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.tree.ClassNode;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.jar.JarEntry;
-import java.util.jar.JarOutputStream;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
 
 @Getter
 @Slf4j(topic = "Context")
