@@ -3,10 +3,31 @@ package org.lifuscator.core.analysis;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.*;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 public class ControlFlowAnalyzer {
+
+    public List<BasicBlock> buildBlocks(MethodNode method) {
+        List<BasicBlock> blocks = new ArrayList<>();
+
+        Set<AbstractInsnNode> leaders = findLeaders(method);
+        AbstractInsnNode[] insns = method.instructions.toArray();
+
+        BasicBlock current = null;
+        for (AbstractInsnNode insn : insns) {
+            if (leaders.contains(insn)) {
+                current = new BasicBlock(blocks.size());
+                blocks.add(current);
+            }
+
+            current.getInstructions().add(insn); // current is never null
+        }
+
+        return blocks;
+    }
 
     public Set<AbstractInsnNode> findLeaders(MethodNode method) {
         Set<AbstractInsnNode> leaders = new HashSet<>();
@@ -15,7 +36,7 @@ public class ControlFlowAnalyzer {
         if (insns.length == 0) {
             return leaders;
         }
-        
+
         leaders.add(insns[0]);
 
         for (AbstractInsnNode insn : insns) {
