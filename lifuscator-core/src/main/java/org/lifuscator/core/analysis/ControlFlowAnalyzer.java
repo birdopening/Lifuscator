@@ -6,6 +6,12 @@ import org.objectweb.asm.tree.*;
 import java.util.*;
 
 public class ControlFlowAnalyzer {
+    
+    public List<BasicBlock> analyze(MethodNode method) {
+        List<BasicBlock> blocks = buildBlocks(method);
+        connectBlocks(blocks);
+        return blocks;
+    }
 
     public void connectBlocks(List<BasicBlock> blocks) {
         Map<AbstractInsnNode, BasicBlock> byLeader = new HashMap<>();
