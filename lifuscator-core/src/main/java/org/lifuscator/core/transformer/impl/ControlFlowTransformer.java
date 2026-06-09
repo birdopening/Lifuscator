@@ -8,7 +8,7 @@ import org.lifuscator.core.transformer.Transformer;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j(topic = "ControlFlow")
@@ -34,5 +34,21 @@ public class ControlFlowTransformer extends Transformer {
         }
 
         log.info("Analyzed {} methods into {} basic blocks", methodCount.get(), blockCount.get());
+    }
+
+    private Map<BasicBlock, Integer> assignKeys(List<BasicBlock> blocks) {
+        Map<BasicBlock, Integer> keys = new HashMap<>();
+        Set<Integer> takenKeys = new HashSet<>();
+
+        for (BasicBlock block : blocks) {
+            int key;
+            do {
+                key = random.nextInt();
+            } while (!takenKeys.add(key));
+
+            keys.put(block, key);
+        }
+
+        return keys;
     }
 }
