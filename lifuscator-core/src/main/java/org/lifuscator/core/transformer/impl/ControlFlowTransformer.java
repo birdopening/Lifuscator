@@ -5,8 +5,7 @@ import org.lifuscator.core.analysis.BasicBlock;
 import org.lifuscator.core.analysis.ControlFlowAnalyzer;
 import org.lifuscator.core.context.Context;
 import org.lifuscator.core.transformer.Transformer;
-import org.objectweb.asm.tree.ClassNode;
-import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.*;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -34,6 +33,44 @@ public class ControlFlowTransformer extends Transformer {
         }
 
         log.info("Analyzed {} methods into {} basic blocks", methodCount.get(), blockCount.get());
+    }
+
+    private int allocSlot(MethodNode method) {
+        int slot = method.maxLocals;
+        method.maxLocals += 1;
+        return slot;
+    }
+
+    private InsnList lookupswitchDispatcher(int stateSlot, LabelNode dispatcherLabel, List<BasicBlock> blocks, Map<BasicBlock, Integer> keys, Map<BasicBlock, LabelNode> labels) {
+        InsnList insnList = new InsnList();
+
+        insnList.add(dispatcherLabel);
+        insnList.add(new VarInsnNode(ILOAD, stateSlot));
+
+        List<BasicBlock> sorted = new ArrayList<>(blocks);
+        sorted.sort(Comparator.comparingInt(keys::get));
+
+        int[] switchKeys = new int[sorted.size()];
+        LabelNode[] switchLabels = new LabelNode[sorted.size()];
+        for (int i = 0; i < sorted.size(); i++) {
+            BasicBlock block = sorted.get(i);
+            switchKeys[i] = keys.get(block); // number
+            switchLabels[i] = labels.get(block); // Label
+        }
+
+        // can never happen
+        LabelNode def = labels.get(blocks.getFirst());
+
+        insnList.add(new LookupSwitchInsnNode(def, switchKeys, switchLabels));
+        return insnList;
+    }
+
+    private Map<BasicBlock, LabelNode> createLabels(List<BasicBlock> blocks) {
+        Map<BasicBlock, LabelNode> labels = new HashMap<>();
+        for (BasicBlock block : blocks) {
+            labels.put(block, new LabelNode()); // block code start
+        }
+        return labels;
     }
 
     private Map<BasicBlock, Integer> assignKeys(List<BasicBlock> blocks) {
