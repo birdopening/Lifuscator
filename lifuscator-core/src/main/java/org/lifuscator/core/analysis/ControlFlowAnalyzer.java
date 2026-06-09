@@ -1,12 +1,14 @@
 package org.lifuscator.core.analysis;
 
+import lombok.experimental.UtilityClass;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.*;
 
 import java.util.*;
 
+@UtilityClass
 public class ControlFlowAnalyzer {
-    
+
     public List<BasicBlock> analyze(MethodNode method) {
         List<BasicBlock> blocks = buildBlocks(method);
         connectBlocks(blocks);

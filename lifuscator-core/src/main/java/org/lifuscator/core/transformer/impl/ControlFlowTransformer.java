@@ -14,8 +14,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Slf4j(topic = "ControlFlow")
 public class ControlFlowTransformer extends Transformer {
 
-    private final ControlFlowAnalyzer cfa = new ControlFlowAnalyzer();
-
     @Override
     public void transform(Context context) {
         AtomicInteger methodCount = new AtomicInteger(0);
@@ -27,7 +25,7 @@ public class ControlFlowTransformer extends Transformer {
                     continue;
                 }
 
-                List<BasicBlock> blocks = cfa.analyze(method);
+                List<BasicBlock> blocks = ControlFlowAnalyzer.analyze(method);
                 methodCount.incrementAndGet();
                 blockCount.addAndGet(blocks.size());
             }
