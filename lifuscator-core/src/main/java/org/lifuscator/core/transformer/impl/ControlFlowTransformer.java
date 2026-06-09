@@ -5,6 +5,7 @@ import org.lifuscator.core.analysis.BasicBlock;
 import org.lifuscator.core.analysis.ControlFlowAnalyzer;
 import org.lifuscator.core.context.Context;
 import org.lifuscator.core.transformer.Transformer;
+import org.lifuscator.core.utils.AsmUtils;
 import org.objectweb.asm.tree.*;
 
 import java.util.*;
@@ -35,7 +36,7 @@ public class ControlFlowTransformer extends Transformer {
         log.info("Analyzed {} methods into {} basic blocks", methodCount.get(), blockCount.get());
     }
 
-    private int allocSlot(MethodNode method) {
+    private int allocState(MethodNode method) {
         int slot = method.maxLocals;
         method.maxLocals += 1;
         return slot;
@@ -62,6 +63,14 @@ public class ControlFlowTransformer extends Transformer {
         LabelNode def = labels.get(blocks.getFirst());
 
         insnList.add(new LookupSwitchInsnNode(def, switchKeys, switchLabels));
+        return insnList;
+    }
+
+    private InsnList gotoDispatcher(int stateSlot, int nextKey, LabelNode dispatcherLabel) {
+        InsnList insnList = new InsnList();
+        insnList.add(AsmUtils.numberInsn(nextKey));
+        insnList.add(new VarInsnNode(ISTORE, stateSlot));
+        insnList.add(new JumpInsnNode(GOTO, dispatcherLabel));
         return insnList;
     }
 
