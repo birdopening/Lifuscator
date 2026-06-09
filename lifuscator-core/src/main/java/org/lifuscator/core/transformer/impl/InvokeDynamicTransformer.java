@@ -5,6 +5,7 @@ import org.lifuscator.core.context.Context;
 import org.lifuscator.core.jar.Jar;
 import org.lifuscator.core.transformer.Transformer;
 import org.lifuscator.core.utils.AsmUtils;
+import org.lifuscator.core.utils.NameUtils;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.tree.*;
@@ -48,7 +49,7 @@ public class InvokeDynamicTransformer extends Transformer {
                         }
 
                         Handle bootstrap = new Handle(H_INVOKESTATIC, clazz.name, bootstrapName, BOOTSTRAP_DESC, false);
-                        InvokeDynamicInsnNode indy = new InvokeDynamicInsnNode(refName(), indyDesc(methodInsn), bootstrap, references.size());
+                        InvokeDynamicInsnNode indy = new InvokeDynamicInsnNode(NameUtils.weirdName(), indyDesc(methodInsn), bootstrap, references.size());
                         method.instructions.set(methodInsn, indy);
                         references.add(reference(methodInsn));
 
@@ -60,7 +61,7 @@ public class InvokeDynamicTransformer extends Transformer {
                         }
 
                         Handle bootstrap = new Handle(H_INVOKESTATIC, clazz.name, bootstrapName, BOOTSTRAP_DESC, false);
-                        InvokeDynamicInsnNode indy = new InvokeDynamicInsnNode(refName(), indyDesc(fieldInsn), bootstrap, references.size());
+                        InvokeDynamicInsnNode indy = new InvokeDynamicInsnNode(NameUtils.weirdName(), indyDesc(fieldInsn), bootstrap, references.size());
                         method.instructions.set(fieldInsn, indy);
                         references.add(reference(fieldInsn));
 
