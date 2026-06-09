@@ -70,10 +70,14 @@ public class ControlFlowTransformer extends Transformer {
         AbstractInsnNode last = block.last();
         int opcode = last.getOpcode();
 
-        // method exit
-        // control already gone :)
         if ((opcode >= IRETURN && opcode <= RETURN) || opcode == ATHROW) {
-            return new InsnList();
+            return new InsnList(); // control already gone
+        }
+
+        if (opcode == GOTO) {
+            block.getInstructions().remove(last); //useless
+            BasicBlock target = block.getSuccessors().getFirst();
+            return gotoDispatcher(stateSlot, keys.get(target), dispatcherLabel);
         }
 
         boolean b = last instanceof JumpInsnNode || last instanceof TableSwitchInsnNode || last instanceof LookupSwitchInsnNode;
