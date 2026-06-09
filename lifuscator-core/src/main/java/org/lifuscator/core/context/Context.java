@@ -7,10 +7,7 @@ import org.apache.commons.io.file.PathUtils;
 import org.lifuscator.core.jar.Jar;
 import org.lifuscator.core.jar.JarLoader;
 import org.lifuscator.core.transformer.Transformer;
-import org.lifuscator.core.transformer.impl.IntegerEncryptorTransformer;
-import org.lifuscator.core.transformer.impl.InvokeDynamicTransformer;
-import org.lifuscator.core.transformer.impl.SourceFileRemoverTransformer;
-import org.lifuscator.core.transformer.impl.StringEncryptorTransformer;
+import org.lifuscator.core.transformer.impl.*;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -23,10 +20,8 @@ public class Context {
 
     private final Path input;
     private final Path output;
-
-    private Jar jar;
-
     private final List<Transformer> transformers = new ArrayList<>();
+    private Jar jar;
 
     public Context(String input, String output) {
         this.input = Path.of(input);
@@ -35,6 +30,7 @@ public class Context {
         transformers.add(new SourceFileRemoverTransformer());
         transformers.add(new StringEncryptorTransformer());
         transformers.add(new IntegerEncryptorTransformer());
+        transformers.add(new ControlFlowTransformer());
         transformers.add(new InvokeDynamicTransformer());
     }
 
