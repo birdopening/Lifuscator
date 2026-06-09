@@ -3,12 +3,60 @@ package org.lifuscator.core.analysis;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.*;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class ControlFlowAnalyzer {
+
+    public void connectBlocks(List<BasicBlock> blocks) {
+        Map<AbstractInsnNode, BasicBlock> byLeader = new HashMap<>();
+        for (BasicBlock block : blocks) {
+            byLeader.put(block.first(), block);
+        }
+
+        for (int i = 0; i < blocks.size(); i++) {
+            BasicBlock block = blocks.get(i);
+            AbstractInsnNode last = block.last();
+            int opcode = last.getOpcode();
+
+            // returns and throw go nowhere
+            if ((opcode >= Opcodes.IRETURN && opcode <= Opcodes.RETURN) || opcode == Opcodes.ATHROW) {
+                continue;
+            }
+
+            switch (last) {
+                case JumpInsnNode jump -> {
+                    link(block, byLeader.get(jump.label));
+
+                    // conditional
+                    if (opcode != Opcodes.GOTO && opcode != Opcodes.JSR) {
+                        link(block, fallThrough(blocks, i));
+                    }
+                }
+                case TableSwitchInsnNode tableSwitch -> {
+                    // default + every case label
+                    link(block, byLeader.get(tableSwitch.dflt));
+                    tableSwitch.labels.forEach(label -> link(block, byLeader.get(label)));
+                }
+                case LookupSwitchInsnNode lookupSwitch -> {
+                    link(block, byLeader.get(lookupSwitch.dflt));
+                    lookupSwitch.labels.forEach(label -> link(block, byLeader.get(label)));
+                }
+                default -> link(block, fallThrough(blocks, i)); //just fall into the next block
+            }
+        }
+    }
+
+    private BasicBlock fallThrough(List<BasicBlock> blocks, int i) {
+        return i + 1 < blocks.size() ? blocks.get(i + 1) : null;
+    }
+
+    private void link(BasicBlock from, BasicBlock to) {
+        if (to == null) {
+            return;
+        }
+        from.getSuccessors().add(to);
+        to.getPredecessors().add(from);
+    }
 
     public List<BasicBlock> buildBlocks(MethodNode method) {
         List<BasicBlock> blocks = new ArrayList<>();
