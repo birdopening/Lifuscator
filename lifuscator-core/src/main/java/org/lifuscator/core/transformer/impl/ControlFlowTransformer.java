@@ -66,6 +66,28 @@ public class ControlFlowTransformer extends Transformer {
         return insnList;
     }
 
+    private InsnList blockTail(BasicBlock block, int stateSlot, LabelNode dispatcherLabel, Map<BasicBlock, Integer> keys) {
+        AbstractInsnNode last = block.last();
+        int opcode = last.getOpcode();
+
+        // method exit
+        // control already gone :)
+        if ((opcode >= IRETURN && opcode <= RETURN) || opcode == ATHROW) {
+            return new InsnList();
+        }
+
+        boolean b = last instanceof JumpInsnNode || last instanceof TableSwitchInsnNode || last instanceof LookupSwitchInsnNode;
+
+        // fallthrough?
+        if (!b) {
+            BasicBlock next = block.getSuccessors().getFirst();
+            return gotoDispatcher(stateSlot, keys.get(next), dispatcherLabel);
+        }
+
+        //TODO TODO TODO
+        return null;
+    }
+
     private InsnList gotoDispatcher(int stateSlot, int nextKey, LabelNode dispatcherLabel) {
         InsnList insnList = new InsnList();
         insnList.add(AsmUtils.numberInsn(nextKey));
