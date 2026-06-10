@@ -18,6 +18,8 @@ public class ControlFlowTransformer extends Transformer {
     public void transform(Context context) {
         AtomicInteger methodCount = new AtomicInteger(0);
         AtomicInteger blockCount = new AtomicInteger(0);
+        AtomicInteger flattened = new AtomicInteger(0);
+        AtomicInteger skipped = new AtomicInteger(0);
 
         for (ClassNode clazz : context.getJar().classes().values()) {
             for (MethodNode method : clazz.methods) {
@@ -28,10 +30,56 @@ public class ControlFlowTransformer extends Transformer {
                 List<BasicBlock> blocks = ControlFlowAnalyzer.analyze(method);
                 methodCount.incrementAndGet();
                 blockCount.addAndGet(blocks.size());
+
+                if (flatten(method)) {
+                    flattened.incrementAndGet();
+                } else {
+                    skipped.incrementAndGet();
+                }
             }
         }
 
         log.info("Analyzed {} methods into {} basic blocks", methodCount.get(), blockCount.get());
+        log.info("Flattened {} methods (skipped: {})", flattened.get(), skipped.get());
+    }
+
+    private boolean flatten(MethodNode method) {
+
+        //TODO
+        if (!method.tryCatchBlocks.isEmpty()) return false;
+        if (method.name.equals("<init>")) return false;
+
+        List<BasicBlock> blocks = ControlFlowAnalyzer.analyze(method);
+        if (blocks.size() < 2) return false;
+
+        int stateSlot = allocState(method);
+        Map<BasicBlock, Integer> keys = assignKeys(blocks);
+        Map<BasicBlock, LabelNode> labels = createLabels(blocks);
+        LabelNode dispatcherLabel = new LabelNode();
+
+        Map<BasicBlock, InsnList> tails = new HashMap<>();
+        for (BasicBlock block : blocks) {
+            InsnList tail = blockTail(block, stateSlot, dispatcherLabel, keys);
+            if (tail == null) return false;
+            tails.put(block, tail);
+        }
+
+        method.instructions.clear();
+
+        method.instructions.add(AsmUtils.numberInsn(keys.get(blocks.getFirst())));
+        method.instructions.add(new VarInsnNode(ISTORE, stateSlot));
+
+        method.instructions.add(lookupswitchDispatcher(stateSlot, dispatcherLabel, blocks, keys, labels));
+
+        for (BasicBlock block : blocks) {
+            method.instructions.add(labels.get(block));
+            for (AbstractInsnNode insn : block.getInstructions()) {
+                method.instructions.add(insn);
+            }
+            method.instructions.add(tails.get(block));
+        }
+
+        return true;
     }
 
     private int allocState(MethodNode method) {
@@ -82,7 +130,7 @@ public class ControlFlowTransformer extends Transformer {
 
         // fallthrough?
         if (!b) {
-            BasicBlock next = block.getSuccessors().getFirst();
+            BasicBlock next = block.getSuccessors().getFirst(); //TODO fix NoSuchElementException
             return gotoDispatcher(stateSlot, keys.get(next), dispatcherLabel);
         }
 
