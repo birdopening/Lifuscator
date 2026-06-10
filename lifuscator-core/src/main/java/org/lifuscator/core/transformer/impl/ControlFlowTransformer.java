@@ -108,7 +108,22 @@ public class ControlFlowTransformer extends Transformer {
             return tail;
         }
 
-        //TODO TODO TODO (conditional jumps)
+        // conditional jumps
+        if (last instanceof JumpInsnNode jump) {
+            BasicBlock taken = block.getSuccessors().get(0); // jump (true)
+            BasicBlock notTaken = block.getSuccessors().get(1); // fallthrough (false)
+
+
+            LabelNode takenLabel = new LabelNode();
+            jump.label = takenLabel;
+
+            InsnList tail = new InsnList();
+            tail.add(gotoDispatcher(stateSlot, keys.get(notTaken), dispatcherLabel));
+            tail.add(takenLabel);
+            tail.add(gotoDispatcher(stateSlot, keys.get(taken), dispatcherLabel));
+            return tail;
+        }
+
         return null;
     }
 
