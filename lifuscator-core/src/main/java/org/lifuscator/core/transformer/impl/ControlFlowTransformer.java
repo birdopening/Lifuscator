@@ -130,7 +130,10 @@ public class ControlFlowTransformer extends Transformer {
 
         // fallthrough?
         if (!b) {
-            BasicBlock next = block.getSuccessors().getFirst(); //TODO fix NoSuchElementException
+            if (block.getSuccessors().isEmpty()) {
+                return new InsnList();
+            }
+            BasicBlock next = block.getSuccessors().getFirst();
             return gotoDispatcher(stateSlot, keys.get(next), dispatcherLabel);
         }
 
