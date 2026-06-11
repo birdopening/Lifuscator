@@ -130,7 +130,7 @@ public class ControlFlowTransformer extends Transformer {
 
         // fallthrough?
         if (!b) {
-            if (block.getSuccessors().isEmpty()) {
+            if (block.getSuccessors().isEmpty()) { //TODO fix
                 return new InsnList();
             }
             BasicBlock next = block.getSuccessors().getFirst();
