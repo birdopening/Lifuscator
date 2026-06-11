@@ -30,7 +30,7 @@ public class Context {
         transformers.add(new SourceFileRemoverTransformer());
         transformers.add(new StringEncryptorTransformer());
         transformers.add(new IntegerEncryptorTransformer());
-        transformers.add(new ControlFlowTransformer());
+        //transformers.add(new ControlFlowTransformer()); //TODO FIX!!!
         transformers.add(new InvokeDynamicTransformer());
     }
 

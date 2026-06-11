@@ -7,6 +7,8 @@ import org.lifuscator.core.utils.AsmUtils;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.tree.*;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j(topic = "StringEncryptor")
@@ -14,28 +16,36 @@ public class StringEncryptorTransformer extends Transformer {
 
     public static final String XOR_DESC = "(Ljava/lang/String;I)Ljava/lang/String;";
 
+    public static String xor(String s, int k) {
+        char[] c = s.toCharArray();
+        for (int i = 0; i < s.length(); i++) {
+            c[i] = (char) (c[i] ^ k);
+        }
+        return new String(c);
+    }
+
     @Override
     public void transform(Context context) {
 
         AtomicInteger count = new AtomicInteger(0);
 
-        for (ClassNode clazz : context.getJar().classes().values()) {
-            String methodName = null;
 
+        List<ClassNode> classes = new ArrayList<>(context.getJar().classes().values());
+        // 1 xor method
+        ClassNode hostClass = classes.get(random.nextInt(classes.size()));
+        String methodName = AsmUtils.findUnusedMethodName(hostClass, "xor", XOR_DESC);
+
+        for (ClassNode clazz : classes) {
             for (MethodNode method : clazz.methods) {
                 for (AbstractInsnNode instruction : method.instructions.toArray()) {
                     if (instruction instanceof LdcInsnNode ldc) {
                         if (ldc.cst instanceof String string) {
-                            if (methodName == null) {
-                                methodName = AsmUtils.findUnusedMethodName(clazz, "xor", XOR_DESC);
-                            }
-
                             int key = random.nextInt(255) + 1;
                             ldc.cst = xor(string, key);
 
                             InsnList decrypt = new InsnList();
                             decrypt.add(new LdcInsnNode(key));
-                            decrypt.add(new MethodInsnNode(INVOKESTATIC, clazz.name, methodName, XOR_DESC, false));
+                            decrypt.add(new MethodInsnNode(INVOKESTATIC, hostClass.name, methodName, XOR_DESC, false));
                             method.instructions.insert(ldc, decrypt);
 
                             count.getAndIncrement();
@@ -43,21 +53,13 @@ public class StringEncryptorTransformer extends Transformer {
                     }
                 }
             }
+        }
 
-            if (methodName != null) {
-                injectXorMethod(clazz, methodName);
-            }
+        if (hostClass != null) {
+            injectXorMethod(hostClass, methodName);
         }
 
         log.info("Encrypted {} strings", count.get());
-    }
-
-    public static String xor(String s, int k) {
-        char[] c = s.toCharArray();
-        for (int i = 0; i < s.length(); i++) {
-            c[i] = (char) (c[i] ^ k);
-        }
-        return new String(c);
     }
 
     public void injectXorMethod(ClassNode clazz, String methodName) {
