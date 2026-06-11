@@ -7,6 +7,7 @@ import org.lifuscator.core.context.Context;
 import org.lifuscator.core.transformer.Transformer;
 import org.lifuscator.core.utils.AsmUtils;
 import org.objectweb.asm.tree.*;
+import org.objectweb.asm.tree.analysis.*;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -31,7 +32,7 @@ public class ControlFlowTransformer extends Transformer {
                 methodCount.incrementAndGet();
                 blockCount.addAndGet(blocks.size());
 
-                if (flatten(method)) {
+                if (flatten(clazz, method)) {
                     flattened.incrementAndGet();
                 } else {
                     skipped.incrementAndGet();
@@ -43,11 +44,14 @@ public class ControlFlowTransformer extends Transformer {
         log.info("Flattened {} methods (skipped: {})", flattened.get(), skipped.get());
     }
 
-    private boolean flatten(MethodNode method) {
+    private boolean flatten(ClassNode clazz, MethodNode method) {
 
         //TODO
         if (!method.tryCatchBlocks.isEmpty()) return false;
         if (method.name.equals("<init>")) return false;
+
+        Frame<BasicValue>[] frames = computeFrames(clazz.name, method);
+        if (frames == null) return false;
 
         List<BasicBlock> blocks = ControlFlowAnalyzer.analyze(method);
         if (blocks.size() < 2) return false;
@@ -80,6 +84,15 @@ public class ControlFlowTransformer extends Transformer {
         }
 
         return true;
+    }
+
+    private Frame<BasicValue>[] computeFrames(String owner, MethodNode method) {
+        try {
+            Analyzer<BasicValue> analyzer = new Analyzer<>(new BasicInterpreter());
+            return analyzer.analyze(owner, method);
+        } catch (AnalyzerException e) {
+            return null;
+        }
     }
 
     private int allocState(MethodNode method) {
