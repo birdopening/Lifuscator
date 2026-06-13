@@ -53,8 +53,45 @@ public class ControlFlowTransformer extends Transformer {
         Frame<BasicValue>[] frames = computeFrames(clazz.name, method);
         if (frames == null) return false;
 
+        Map<AbstractInsnNode, Integer> indexOf = new HashMap<>();
+        AbstractInsnNode[] insns = method.instructions.toArray();
+        for (int i = 0; i < insns.length; i++) {
+            indexOf.put(insns[i], i);
+        }
+
         List<BasicBlock> blocks = ControlFlowAnalyzer.analyze(method);
         if (blocks.size() < 2) return false;
+
+        Set<BasicBlock> deadCode = new HashSet<>();
+        Set<BasicBlock> targets = new HashSet<>(); // empty stack
+        for (BasicBlock block : blocks) {
+            Frame<BasicValue> frame = frames[indexOf.get(block.first())];
+            if (frame == null) {
+                deadCode.add(block);
+            } else if (frame.getStackSize() == 0) {
+                targets.add(block);
+            }
+        }
+
+        if (!targets.contains(blocks.getFirst())) return false; // ALWAYS EMPTY
+
+
+        Map<List<String>, List<BasicBlock>> groups = new LinkedHashMap<>();
+        for (BasicBlock target : targets) {
+            List<String> key = localsSig(frames[indexOf.get(target.first())]);
+            groups.computeIfAbsent(key, _ -> new ArrayList<>()).add(target);
+        }
+
+        Map<BasicBlock, LabelNode> dispatcherOf = new HashMap<>();
+        Map<List<String>, LabelNode> groupLabels = new LinkedHashMap<>();
+        for (List<String> key : groups.keySet()) {
+            LabelNode dispatcher = new LabelNode();
+            groupLabels.put(key, dispatcher);
+            for (BasicBlock target : groups.get(key)) {
+                // 1 dispatcher per group, not per block
+                dispatcherOf.put(target, dispatcher);
+            }
+        }
 
         int stateSlot = allocState(method);
         Map<BasicBlock, Integer> keys = assignKeys(blocks);
@@ -84,6 +121,15 @@ public class ControlFlowTransformer extends Transformer {
         }
 
         return true;
+    }
+
+    private List<String> localsSig(Frame<BasicValue> frame) {
+        List<String> key = new ArrayList<>(frame.getLocals());
+        for (int i = 0; i < frame.getLocals(); i++) {
+            BasicValue local = frame.getLocal(i);
+            key.add(local == null || local.getType() == null ? "_" : local.getType().getDescriptor());
+        }
+        return key;
     }
 
     private Frame<BasicValue>[] computeFrames(String owner, MethodNode method) {
