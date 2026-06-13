@@ -22,6 +22,10 @@ public class ControlFlowTransformer extends Transformer {
         AtomicInteger flattened = new AtomicInteger(0);
         AtomicInteger skipped = new AtomicInteger(0);
 
+        int skippedConstructors = 0;
+        int skippedTooFewBlocks = 0;
+        int skippedTryCatch = 0;
+
         for (ClassNode clazz : context.getJar().classes().values()) {
             for (MethodNode method : clazz.methods) {
                 if (method.instructions.size() == 0) {
@@ -36,9 +40,21 @@ public class ControlFlowTransformer extends Transformer {
                     flattened.incrementAndGet();
                 } else {
                     skipped.incrementAndGet();
+
+                    if (!method.tryCatchBlocks.isEmpty()) {
+                        skippedTryCatch++;
+                    } else if (method.name.equals("<init>")) {
+                        skippedConstructors++;
+                    } else if (blocks.size() < 2) {
+                        skippedTooFewBlocks++;
+                    }
                 }
             }
         }
+
+        log.warn("Skipped {} (try catch)", skippedTryCatch);
+        log.warn("Skipped {} (constructor)", skippedConstructors);
+        log.warn("Skipped {} (too few blocks)", skippedTooFewBlocks);
 
         log.info("Analyzed {} methods into {} basic blocks", methodCount.get(), blockCount.get());
         log.info("Flattened {} methods (skipped: {})", flattened.get(), skipped.get());
@@ -94,13 +110,16 @@ public class ControlFlowTransformer extends Transformer {
         }
 
         int stateSlot = allocState(method);
-        Map<BasicBlock, Integer> keys = assignKeys(blocks);
+        Map<BasicBlock, Integer> keys = assignKeys(targets);
         Map<BasicBlock, LabelNode> labels = createLabels(blocks);
-        LabelNode dispatcherLabel = new LabelNode();
 
         Map<BasicBlock, InsnList> tails = new HashMap<>();
         for (BasicBlock block : blocks) {
-            InsnList tail = blockTail(block, stateSlot, dispatcherLabel, keys);
+            if (deadCode.contains(block)) {
+                tails.put(block, new InsnList());
+                continue;
+            }
+            InsnList tail = blockTail(block, stateSlot, dispatcherOf, keys, labels, targets);
             if (tail == null) return false;
             tails.put(block, tail);
         }
@@ -109,8 +128,12 @@ public class ControlFlowTransformer extends Transformer {
 
         method.instructions.add(AsmUtils.numberInsn(keys.get(blocks.getFirst())));
         method.instructions.add(new VarInsnNode(ISTORE, stateSlot));
+        method.instructions.add(new JumpInsnNode(GOTO, dispatcherOf.get(blocks.getFirst())));
 
-        method.instructions.add(lookupswitchDispatcher(stateSlot, dispatcherLabel, blocks, keys, labels));
+        // 1 dispatcher per group
+        for (List<String> key : groups.keySet()) {
+            method.instructions.add(lookupswitchDispatcher(stateSlot, groupLabels.get(key), groups.get(key), keys, labels));
+        }
 
         for (BasicBlock block : blocks) {
             method.instructions.add(labels.get(block));
@@ -137,6 +160,7 @@ public class ControlFlowTransformer extends Transformer {
             Analyzer<BasicValue> analyzer = new Analyzer<>(new BasicInterpreter());
             return analyzer.analyze(owner, method);
         } catch (AnalyzerException e) {
+            log.error(e.getMessage() + " {}", method.name);
             return null;
         }
     }
@@ -147,7 +171,7 @@ public class ControlFlowTransformer extends Transformer {
         return slot;
     }
 
-    private InsnList lookupswitchDispatcher(int stateSlot, LabelNode dispatcherLabel, List<BasicBlock> blocks, Map<BasicBlock, Integer> keys, Map<BasicBlock, LabelNode> labels) {
+    private InsnList lookupswitchDispatcher(int stateSlot, LabelNode dispatcherLabel, Collection<BasicBlock> blocks, Map<BasicBlock, Integer> keys, Map<BasicBlock, LabelNode> labels) {
         InsnList insnList = new InsnList();
 
         insnList.add(dispatcherLabel);
@@ -165,13 +189,13 @@ public class ControlFlowTransformer extends Transformer {
         }
 
         // can never happen
-        LabelNode def = labels.get(blocks.getFirst());
+        LabelNode def = labels.get(sorted.getFirst());
 
         insnList.add(new LookupSwitchInsnNode(def, switchKeys, switchLabels));
         return insnList;
     }
 
-    private InsnList blockTail(BasicBlock block, int stateSlot, LabelNode dispatcherLabel, Map<BasicBlock, Integer> keys) {
+    private InsnList blockTail(BasicBlock block, int stateSlot, Map<BasicBlock, LabelNode> dispatcherOf, Map<BasicBlock, Integer> keys, Map<BasicBlock, LabelNode> labels, Set<BasicBlock> targets) {
         AbstractInsnNode last = block.last();
         int opcode = last.getOpcode();
 
@@ -182,7 +206,7 @@ public class ControlFlowTransformer extends Transformer {
         if (opcode == GOTO) {
             block.getInstructions().remove(last); //useless
             BasicBlock target = block.getSuccessors().getFirst();
-            return gotoDispatcher(stateSlot, keys.get(target), dispatcherLabel);
+            return route(target, stateSlot, dispatcherOf, keys, labels, targets);
         }
 
         boolean b = last instanceof JumpInsnNode || last instanceof TableSwitchInsnNode || last instanceof LookupSwitchInsnNode;
@@ -193,7 +217,7 @@ public class ControlFlowTransformer extends Transformer {
                 return new InsnList();
             }
             BasicBlock next = block.getSuccessors().getFirst();
-            return gotoDispatcher(stateSlot, keys.get(next), dispatcherLabel);
+            return route(next, stateSlot, dispatcherOf, keys, labels, targets);
         }
 
         if (last instanceof TableSwitchInsnNode || last instanceof LookupSwitchInsnNode) {
@@ -203,15 +227,15 @@ public class ControlFlowTransformer extends Transformer {
             InsnList tail = new InsnList();
 
             if (last instanceof TableSwitchInsnNode tableswitch) {
-                tableswitch.dflt = switchStub(succ.getFirst(), stubs, tail, stateSlot, keys, dispatcherLabel);
+                tableswitch.dflt = switchStub(succ.getFirst(), stubs, tail, stateSlot, dispatcherOf, keys, labels, targets);
                 for (int i = 0; i < tableswitch.labels.size(); i++) {
-                    tableswitch.labels.set(i, switchStub(succ.get(i + 1), stubs, tail, stateSlot, keys, dispatcherLabel));
+                    tableswitch.labels.set(i, switchStub(succ.get(i + 1), stubs, tail, stateSlot, dispatcherOf, keys, labels, targets));
                 }
             } else {
                 LookupSwitchInsnNode lookupswitch = (LookupSwitchInsnNode) last;
-                lookupswitch.dflt = switchStub(succ.getFirst(), stubs, tail, stateSlot, keys, dispatcherLabel);
+                lookupswitch.dflt = switchStub(succ.getFirst(), stubs, tail, stateSlot, dispatcherOf, keys, labels, targets);
                 for (int i = 0; i < lookupswitch.labels.size(); i++) {
-                    lookupswitch.labels.set(i, switchStub(succ.get(i + 1), stubs, tail, stateSlot, keys, dispatcherLabel));
+                    lookupswitch.labels.set(i, switchStub(succ.get(i + 1), stubs, tail, stateSlot, dispatcherOf, keys, labels, targets));
                 }
             }
 
@@ -228,23 +252,33 @@ public class ControlFlowTransformer extends Transformer {
             jump.label = takenLabel;
 
             InsnList tail = new InsnList();
-            tail.add(gotoDispatcher(stateSlot, keys.get(notTaken), dispatcherLabel));
+            tail.add(route(notTaken, stateSlot, dispatcherOf, keys, labels, targets));
             tail.add(takenLabel);
-            tail.add(gotoDispatcher(stateSlot, keys.get(taken), dispatcherLabel));
+            tail.add(route(taken, stateSlot, dispatcherOf, keys, labels, targets));
             return tail;
         }
 
         return null;
     }
 
+    private InsnList route(BasicBlock target, int stateSlot, Map<BasicBlock, LabelNode> dispatcherOf, Map<BasicBlock, Integer> keys, Map<BasicBlock, LabelNode> labels, Set<BasicBlock> targets) {
+        if (targets.contains(target)) {
+            return gotoDispatcher(stateSlot, keys.get(target), dispatcherOf.get(target));
+        }
+        //direct jump if stack not empty
+        InsnList direct = new InsnList();
+        direct.add(new JumpInsnNode(GOTO, labels.get(target)));
+        return direct;
+    }
 
-    private LabelNode switchStub(BasicBlock target, Map<BasicBlock, LabelNode> stubs, InsnList tail, int stateSlot, Map<BasicBlock, Integer> keys, LabelNode dispatcherLabel) {
+
+    private LabelNode switchStub(BasicBlock target, Map<BasicBlock, LabelNode> stubs, InsnList tail, int stateSlot, Map<BasicBlock, LabelNode> dispatcherOf, Map<BasicBlock, Integer> keys, Map<BasicBlock, LabelNode> labels, Set<BasicBlock> targets) {
         LabelNode stub = stubs.get(target);
         if (stub == null) {
             stub = new LabelNode();
             stubs.put(target, stub);
             tail.add(stub);
-            tail.add(gotoDispatcher(stateSlot, keys.get(target), dispatcherLabel));
+            tail.add(route(target, stateSlot, dispatcherOf, keys, labels, targets));
         }
         return stub;
     }
@@ -265,7 +299,7 @@ public class ControlFlowTransformer extends Transformer {
         return labels;
     }
 
-    private Map<BasicBlock, Integer> assignKeys(List<BasicBlock> blocks) {
+    private Map<BasicBlock, Integer> assignKeys(Collection<BasicBlock> blocks) {
         Map<BasicBlock, Integer> keys = new HashMap<>();
         Set<Integer> takenKeys = new HashSet<>();
 

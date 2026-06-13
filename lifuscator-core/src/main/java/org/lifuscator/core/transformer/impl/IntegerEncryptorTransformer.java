@@ -17,6 +17,7 @@ public class IntegerEncryptorTransformer extends Transformer {
 
         for (ClassNode clazz : context.getJar().classes().values()) {
             for (MethodNode method : clazz.methods) {
+                boolean encryptedAny = false;
                 for (AbstractInsnNode instruction : method.instructions.toArray()) {
                     Integer number = AsmUtils.number(instruction);
                     if (number == null) {
@@ -34,7 +35,12 @@ public class IntegerEncryptorTransformer extends Transformer {
                     method.instructions.insert(instruction, encrypted);
                     method.instructions.remove(instruction);
 
+                    encryptedAny = true;
                     count.getAndIncrement();
+                }
+
+                if (encryptedAny) {
+                    method.maxStack += 1;
                 }
             }
         }

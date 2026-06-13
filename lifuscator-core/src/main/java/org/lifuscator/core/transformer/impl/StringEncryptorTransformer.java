@@ -37,6 +37,7 @@ public class StringEncryptorTransformer extends Transformer {
 
         for (ClassNode clazz : classes) {
             for (MethodNode method : clazz.methods) {
+                boolean encryptedAny = false;
                 for (AbstractInsnNode instruction : method.instructions.toArray()) {
                     if (instruction instanceof LdcInsnNode ldc) {
                         if (ldc.cst instanceof String string) {
@@ -48,9 +49,14 @@ public class StringEncryptorTransformer extends Transformer {
                             decrypt.add(new MethodInsnNode(INVOKESTATIC, hostClass.name, methodName, XOR_DESC, false));
                             method.instructions.insert(ldc, decrypt);
 
+                            encryptedAny = true;
                             count.getAndIncrement();
                         }
                     }
+                }
+
+                if (encryptedAny) {
+                    method.maxStack += 1;
                 }
             }
         }
