@@ -1,6 +1,7 @@
 package org.lifuscator.core.utils;
 
 import lombok.experimental.UtilityClass;
+import org.lifuscator.core.context.Context;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.*;
 
@@ -83,6 +84,15 @@ public class AsmUtils implements Opcodes {
             }
         }
         return false;
+    }
+
+    public String findUnusedClassName(Context context, String desiredName) {
+        String name = desiredName;
+        int suffix = 0;
+        while (context.getJar().classes().containsKey(name)) {
+            name = desiredName + (suffix++);
+        }
+        return name;
     }
 
     public MethodNode clinit(ClassNode clazz) {
