@@ -75,6 +75,7 @@ public class InvokeDynamicTransformer extends Transformer {
     @Override
     public void transform(Context context) {
         AtomicInteger methodCount = new AtomicInteger(0);
+        AtomicInteger initCount = new AtomicInteger(0);
         AtomicInteger fieldCount = new AtomicInteger(0);
 
         List<ClassNode> classes = new ArrayList<>(context.getJar().classes().values());
@@ -97,7 +98,8 @@ public class InvokeDynamicTransformer extends Transformer {
             for (MethodNode method : clazz.methods) {
                 for (AbstractInsnNode instruction : method.instructions.toArray()) {
                     if (instruction instanceof MethodInsnNode methodInsn && replaceable(methodInsn)) {
-                        if (methodInsn.name.equals("<init>") && !removeNewDup(method, methodInsn)) {
+                        boolean isInit = methodInsn.name.equals("<init>");
+                        if (isInit && !removeNewDup(method, methodInsn)) {
                             continue;
                         }
 
@@ -105,7 +107,7 @@ public class InvokeDynamicTransformer extends Transformer {
                         method.instructions.set(methodInsn, indy);
                         references.add(reference(methodInsn));
 
-                        methodCount.getAndIncrement();
+                        (isInit ? initCount : methodCount).getAndIncrement();
                     } else if (instruction instanceof FieldInsnNode fieldInsn && replaceable(context.getJar(), fieldInsn)) {
                         InvokeDynamicInsnNode indy = new InvokeDynamicInsnNode(NameUtils.weirdName(), indyDesc(fieldInsn), bootstrap, references.size());
                         method.instructions.set(fieldInsn, indy);
@@ -123,7 +125,7 @@ public class InvokeDynamicTransformer extends Transformer {
             injectBootstrapMethod(hostClass, bootstrapName, referencesName);
         }
 
-        log.info("Replaced {} method calls and {} field references", methodCount.get(), fieldCount.get());
+        log.info("Replaced {} method calls, {} constructor calls and {} field references", methodCount.get(), initCount.get(), fieldCount.get());
     }
 
     public boolean replaceable(MethodInsnNode methodInsn) {
