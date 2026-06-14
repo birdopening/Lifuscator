@@ -8,13 +8,9 @@ import org.lifuscator.core.config.Config;
 import org.lifuscator.core.jar.Jar;
 import org.lifuscator.core.jar.JarLoader;
 import org.lifuscator.core.transformer.Transformer;
-import org.lifuscator.core.transformer.impl.IntegerEncryptorTransformer;
-import org.lifuscator.core.transformer.impl.InvokeDynamicTransformer;
-import org.lifuscator.core.transformer.impl.SourceFileRemoverTransformer;
-import org.lifuscator.core.transformer.impl.StringEncryptorTransformer;
+import org.lifuscator.core.transformer.TransformerRegistry;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 
 @Getter
@@ -22,16 +18,11 @@ import java.util.List;
 public class Context {
 
     private final Config config;
-    private final List<Transformer> transformers = new ArrayList<>();
+    private final List<Transformer> transformers = new TransformerRegistry().getEntries();
     private Jar jar;
 
     public Context(Config config) {
         this.config = config;
-
-        transformers.add(new SourceFileRemoverTransformer());
-        transformers.add(new StringEncryptorTransformer());
-        transformers.add(new IntegerEncryptorTransformer());
-        transformers.add(new InvokeDynamicTransformer());
     }
 
     public void run() {
