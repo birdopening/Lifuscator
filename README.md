@@ -3,7 +3,7 @@
 A reliable Java bytecode obfuscator under active development (work in progress, not yet production-ready)
 
 ## Features
-- Reference obfuscation (invokedynamic) with method, field, and full invokespecial support (soon)
+- Reference obfuscation (invokedynamic) with method, field, and full invokespecial support
 - String obfuscation (xor encryption)
 - Integer obfuscation
 - Removal of source files
