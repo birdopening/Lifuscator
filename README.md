@@ -1,5 +1,5 @@
 
-# Lifuscator
+# lifus
 A reliable Java bytecode obfuscator under active development (work in progress, not yet production-ready)
 
 ## Features

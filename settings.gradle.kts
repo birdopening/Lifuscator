@@ -1,2 +1,2 @@
-rootProject.name = "Lifuscator"
-include("lifuscator-core", "lifuscator-cli", "lifuscator-gui")
+rootProject.name = "lifus"
+include("lifus-core", "lifus-cli", "lifus-gui")
