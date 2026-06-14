@@ -1,5 +1,6 @@
 package org.lifuscator.cli;
 
+import org.lifuscator.core.Lifuscator;
 import org.lifuscator.core.config.Config;
 import org.lifuscator.core.context.Context;
 
@@ -23,6 +24,7 @@ public class Main {
 
         Config config = Config.of(args[0], args[1]);
         Context context = new Context(config);
-        context.run();
+
+        new Lifuscator().run(context);
     }
 }
