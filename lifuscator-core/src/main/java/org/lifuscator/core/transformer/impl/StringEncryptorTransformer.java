@@ -25,6 +25,21 @@ public class StringEncryptorTransformer extends Transformer {
     }
 
     @Override
+    public String id() {
+        return "string-encryptor";
+    }
+
+    @Override
+    public String name() {
+        return "String Encryptor";
+    }
+
+    @Override
+    public String description() {
+        return "Encrypts strings and decrypts them at runtime";
+    }
+
+    @Override
     public void transform(Context context) {
 
         AtomicInteger count = new AtomicInteger(0);

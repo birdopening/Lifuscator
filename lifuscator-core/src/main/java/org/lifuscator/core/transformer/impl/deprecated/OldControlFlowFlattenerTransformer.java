@@ -18,7 +18,22 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 @Deprecated
 @Slf4j(topic = "ControlFlow")
-public final class OldControlFlowTransformer extends Transformer {
+public final class OldControlFlowFlattenerTransformer extends Transformer {
+
+    @Override
+    public String id() {
+        return "old-control-flow-flattener";
+    }
+
+    @Override
+    public String name() {
+        return "Old Control Flow Flattener";
+    }
+
+    @Override
+    public String description() {
+        return "deprecated";
+    }
 
     @Override
     public void transform(Context context) {

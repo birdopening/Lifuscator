@@ -25,6 +25,21 @@ public class InvokeDynamicTransformer extends Transformer {
     public static final String REFERENCES_DESC = "[Ljava/lang/String;";
 
     @Override
+    public String id() {
+        return "invoke-dynamic";
+    }
+
+    @Override
+    public String name() {
+        return "InvokeDynamic";
+    }
+
+    @Override
+    public String description() {
+        return "Hides method/field references behind invokedynamic call sites";
+    }
+
+    @Override
     public void transform(Context context) {
         AtomicInteger methodCount = new AtomicInteger(0);
         AtomicInteger fieldCount = new AtomicInteger(0);

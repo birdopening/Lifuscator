@@ -12,6 +12,21 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class IntegerEncryptorTransformer extends Transformer {
 
     @Override
+    public String id() {
+        return "integer-encryptor";
+    }
+
+    @Override
+    public String name() {
+        return "Integer Encryptor";
+    }
+
+    @Override
+    public String description() {
+        return "Encrypts integers and decrypts them at runtime";
+    }
+
+    @Override
     public void transform(Context context) {
         AtomicInteger count = new AtomicInteger(0);
 

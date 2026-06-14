@@ -11,14 +11,13 @@ import org.lifuscator.core.transformer.Transformer;
 import org.lifuscator.core.transformer.TransformerRegistry;
 
 import java.io.IOException;
-import java.util.List;
 
 @Getter
 @Slf4j(topic = "Context")
 public class Context {
 
     private final Config config;
-    private final List<Transformer> transformers = new TransformerRegistry().getEntries();
+    private final TransformerRegistry transformerRegistry = new TransformerRegistry();
     private Jar jar;
 
     public Context(Config config) {
@@ -32,8 +31,8 @@ public class Context {
             return;
         }
 
-        for (Transformer transformer : this.transformers) {
-            log.info("Running transformer {}", transformer.getClass().getSimpleName());
+        for (Transformer transformer : this.transformerRegistry.getEntries().values()) {
+            log.info("Running transformer {}", transformer.id());
             transformer.transform(this);
         }
 
