@@ -13,15 +13,16 @@ import java.io.IOException;
 @Slf4j(topic = "Lifuscator")
 public class Lifuscator {
 
-    public void run(Context context) {
+    public boolean run(Context context) {
         if (!load(context)) {
-            return;
+            return false;
         }
         transform(context);
         if (!export(context)) {
-            return;
+            return false;
         }
         report(context);
+        return true;
     }
 
     private boolean load(Context context) {

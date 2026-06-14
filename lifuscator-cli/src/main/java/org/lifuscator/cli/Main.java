@@ -25,6 +25,9 @@ public class Main {
         Config config = Config.of(args[0], args[1]);
         Context context = new Context(config);
 
-        new Lifuscator().run(context);
+        boolean success = new Lifuscator().run(context);
+        if (!success) {
+            System.exit(1);
+        }
     }
 }
