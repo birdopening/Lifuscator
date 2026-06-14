@@ -6,15 +6,18 @@ import dev.lifus.core.context.Context;
 
 public class Main {
 
-    public static final String ASCII_ART = """
-             __    __  ____ __ __  __    ___  ___  ______   ___   ____\s
-             ||    || ||    || || (( \\  //   // \\\\ | || |  // \\\\  || \\\\
-             ||    || ||==  || ||  \\\\  ((    ||=||   ||   ((   )) ||_//
-             ||__| || ||    \\\\_// \\_))  \\\\__ || ||   ||    \\\\_//  || \\\\
-                                                                       \
-            """;
+    public static final String ASCII_ART = "                                                  \n" +
+            " ▄▄▄▄         ██        ▄▄▄▄                ▄     \n" +
+            " ▀▀██         ▀▀       ██▀▀▀              ▄▄█▄▄   \n" +
+            "   ██       ████     ███████   ██    ██  ██▀█▀▀   \n" +
+            "   ██         ██       ██      ██    ██  ▀███▄▄   \n" +
+            "   ██         ██       ██      ██    ██     █▀██  \n" +
+            "   ██▄▄▄   ▄▄▄██▄▄▄    ██      ██▄▄▄███  █▄▄█▄██  \n" +
+            "    ▀▀▀▀   ▀▀▀▀▀▀▀▀    ▀▀       ▀▀▀▀ ▀▀   ▀▀█▀▀   \n" +
+            "                                            ▀     \n" +
+            "                                                  ";
 
-    public static void main(String[] args) {
+    static void main(String[] args) {
         System.out.println(ASCII_ART);
 
         if (args.length < 2) {
