@@ -66,7 +66,7 @@ public final class JarLoader {
             }
 
             for (ClassNode clazz : jar.classes().values()) {
-                ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
+                ClassWriter writer = new LifusClassWriter(ClassWriter.COMPUTE_FRAMES, jar.classes());
                 clazz.accept(writer);
 
                 byte[] bytes = writer.toByteArray();
