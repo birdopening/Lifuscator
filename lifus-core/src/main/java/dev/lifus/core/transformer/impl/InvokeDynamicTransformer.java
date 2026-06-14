@@ -77,16 +77,22 @@ public class InvokeDynamicTransformer extends Transformer {
         AtomicInteger methodCount = new AtomicInteger(0);
         AtomicInteger fieldCount = new AtomicInteger(0);
 
-        for (ClassNode clazz : context.getJar().classes().values()) {
+        List<ClassNode> classes = new ArrayList<>(context.getJar().classes().values());
+
+        // 1 bootstrap method + 1 references array
+        ClassNode hostClass = pickHostClass(context, classes);
+        log.info("Host class for bootstrap method: {}", hostClass.name);
+        String bootstrapName = AsmUtils.findUnusedMethodName(hostClass, "bootstrap", BOOTSTRAP_DESC);
+        String referencesName = AsmUtils.findUnusedFieldName(hostClass, "references", REFERENCES_DESC);
+        Handle bootstrap = new Handle(H_INVOKESTATIC, hostClass.name, bootstrapName, BOOTSTRAP_DESC, false);
+
+        //TODO: maybe a reference record
+        List<String> references = new ArrayList<>();
+
+        for (ClassNode clazz : classes) {
             if ((clazz.access & ACC_INTERFACE) != 0) {
                 continue;
             }
-
-            String bootstrapName = null;
-            String referencesName = null;
-
-            //TODO: maybe a reference record
-            List<String> references = new ArrayList<>();
 
             for (MethodNode method : clazz.methods) {
                 for (AbstractInsnNode instruction : method.instructions.toArray()) {
@@ -95,24 +101,12 @@ public class InvokeDynamicTransformer extends Transformer {
                             continue;
                         }
 
-                        if (bootstrapName == null) {
-                            bootstrapName = AsmUtils.findUnusedMethodName(clazz, "bootstrap", BOOTSTRAP_DESC);
-                            referencesName = AsmUtils.findUnusedFieldName(clazz, "references", REFERENCES_DESC);
-                        }
-
-                        Handle bootstrap = new Handle(H_INVOKESTATIC, clazz.name, bootstrapName, BOOTSTRAP_DESC, false);
                         InvokeDynamicInsnNode indy = new InvokeDynamicInsnNode(NameUtils.weirdName(), indyDesc(methodInsn), bootstrap, references.size());
                         method.instructions.set(methodInsn, indy);
                         references.add(reference(methodInsn));
 
                         methodCount.getAndIncrement();
                     } else if (instruction instanceof FieldInsnNode fieldInsn && replaceable(context.getJar(), fieldInsn)) {
-                        if (bootstrapName == null) {
-                            bootstrapName = AsmUtils.findUnusedMethodName(clazz, "bootstrap", BOOTSTRAP_DESC);
-                            referencesName = AsmUtils.findUnusedFieldName(clazz, "references", REFERENCES_DESC);
-                        }
-
-                        Handle bootstrap = new Handle(H_INVOKESTATIC, clazz.name, bootstrapName, BOOTSTRAP_DESC, false);
                         InvokeDynamicInsnNode indy = new InvokeDynamicInsnNode(NameUtils.weirdName(), indyDesc(fieldInsn), bootstrap, references.size());
                         method.instructions.set(fieldInsn, indy);
                         references.add(reference(fieldInsn));
@@ -121,12 +115,12 @@ public class InvokeDynamicTransformer extends Transformer {
                     }
                 }
             }
+        }
 
-            if (bootstrapName != null) {
-                clazz.fields.add(new FieldNode(ACC_PRIVATE | ACC_STATIC, referencesName, REFERENCES_DESC, null, null));
-                injectReferences(clazz, referencesName, references);
-                injectBootstrapMethod(clazz, bootstrapName, referencesName);
-            }
+        if (!references.isEmpty()) {
+            hostClass.fields.add(new FieldNode(ACC_PRIVATE | ACC_STATIC, referencesName, REFERENCES_DESC, null, null));
+            injectReferences(hostClass, referencesName, references);
+            injectBootstrapMethod(hostClass, bootstrapName, referencesName);
         }
 
         log.info("Replaced {} method calls and {} field references", methodCount.get(), fieldCount.get());

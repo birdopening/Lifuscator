@@ -36,7 +36,7 @@ public class Lifus {
 
     private void transform(Context context) {
         for (Transformer transformer : context.getTransformerRegistry().getEntries().values()) {
-            log.info("Running transformer {}", transformer.id());
+            log.info("Running transformer: {}", transformer.name());
             transformer.transform(context);
         }
     }
