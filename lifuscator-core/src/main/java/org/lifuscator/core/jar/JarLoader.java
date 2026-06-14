@@ -47,7 +47,9 @@ public final class JarLoader {
 
             log.info("Loaded {} classes and {} resources", classes.size(), resources.size());
 
-            return new Jar(classes, resources);
+            int major = classes.values().stream().mapToInt(c -> c.version).max().getAsInt();
+
+            return new Jar(classes, resources, major);
         } catch (IOException e) {
             log.error(e.getMessage(), e);
         }

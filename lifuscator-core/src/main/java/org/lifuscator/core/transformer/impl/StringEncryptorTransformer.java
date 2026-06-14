@@ -88,7 +88,7 @@ public class StringEncryptorTransformer extends Transformer {
     private ClassNode injectHostClass(Context context) {
         ClassNode hostClass = new ClassNode();
 
-        hostClass.visit(V1_8, ACC_PUBLIC | ACC_SUPER, AsmUtils.findUnusedClassName(context, "Host"), null, "java/lang/Object", null);
+        hostClass.visit(context.getJar().major(), ACC_PUBLIC | ACC_SUPER, AsmUtils.findUnusedClassName(context, "Host"), null, "java/lang/Object", null);
 
         MethodNode methodNode = new MethodNode(ACC_PUBLIC, "<init>", "()V", null, null);
         methodNode.visitCode();
