@@ -1,4 +1,4 @@
-package org.lifuscator.core.transformer.impl;
+package org.lifuscator.core.transformer.impl.deprecated;
 
 import lombok.extern.slf4j.Slf4j;
 import org.lifuscator.core.analysis.BasicBlock;
@@ -12,8 +12,13 @@ import org.objectweb.asm.tree.analysis.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * This approach is too weak, since no flattening occurs
+ * if every block has the same "sig" {@link #localsSig(Frame)}
+ */
+@Deprecated
 @Slf4j(topic = "ControlFlow")
-public class ControlFlowTransformer extends Transformer {
+public final class OldControlFlowTransformer extends Transformer {
 
     @Override
     public void transform(Context context) {
